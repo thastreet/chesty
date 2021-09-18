@@ -55,7 +55,7 @@ client.on('messageCreate', async message => {
 		execute(message);
 		return;
 	} else if (message.content.startsWith(`${prefix}skip`)) {
-		stop();
+		skip(message);
 		return;
 	} else if (message.content.startsWith(`${prefix}clear`)) {
 		clear(message);
@@ -151,8 +151,9 @@ function clear(message) {
 	return message.channel.send(`The queue has been cleared!`);
 }
 
-function stop() {
+function skip(message) {
 	if (playingSong != null) {
+		message.channel.send(`Skipping!`);
 		playingSong.player.stop();
 	}
 }
