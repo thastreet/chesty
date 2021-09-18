@@ -112,8 +112,6 @@ function searchYoutube(query, message, voiceChannel) {
 }
 
 async function playUrl(url, message, voiceChannel) {
-	message.channel.send('Yezzir playing: ' + url);
-
 	const songInfo = await ytdl.getInfo(url);
 	const song = {
 		title: songInfo.videoDetails.title,
@@ -133,7 +131,7 @@ async function playUrl(url, message, voiceChannel) {
 				adapterCreator: message.guild.voiceAdapterCreator
 			});
 
-			play(message.guild, song);
+			play(message, song);
 		} catch (err) {
 			console.log(err);
 			playingSong = null;
@@ -146,17 +144,8 @@ async function playUrl(url, message, voiceChannel) {
 	}
 }
 
-function playNextSong(guild) {
-	if (queue.length > 0) {
-		play(guild, queue.shift());
-		console.log(queue);
-	} else {
-		playingSong = null;
-	}
-}
-
 function clear(message) {
-	if (!message.member.voice.channel || queue.length == 0) return;
+	if (!message.member.voice.channel || queue.length == 0) return;
 	queue = [];
 	console.log(queue);
 	return message.channel.send(`The queue has been cleared!`);
@@ -168,14 +157,25 @@ function stop() {
 	}
 }
 
-function play(guild, song) {
+function play(message, song) {
+	message.channel.send('Yezzir playing: ' + song.url);
+
 	const stream = ytdl(song.url, {
 		quality: 'highestaudio',
 		highWaterMark: 1 << 25
 	})
 	playingSong.player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
-	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(guild))
+	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(message))
 	playingSong.connection.subscribe(playingSong.player);
+}
+
+function playNextSong(message) {
+	if (queue.length > 0) {
+		play(message, queue.shift());
+		console.log(queue);
+	} else {
+		playingSong = null;
+	}
 }
 
 client.login(token);
