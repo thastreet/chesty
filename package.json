@@ -1,0 +1,23 @@
+{
+    "name": "chesty",
+    "version": "1.0.0",
+    "description": "Bocata Ronda Discord Bot",
+    "main": "bot.js",
+    "author": "thastreet",
+    "dependencies": {
+        "@discordjs/voice": "^0.6.0",
+        "axios": "^0.21.4",
+        "discord.js": "^13.1.0",
+        "ffmpeg": "0.0.4",
+        "ffmpeg-static": "^4.2.7",
+        "opusscript": "0.0.7",
+        "ytdl-core": "^4.9.1"
+    },
+    "scripts": {
+        "start": "node bot.js"
+    },
+    "engines": {
+        "node": "16.9.1",
+        "npm": "7.21.1"
+    }
+}
