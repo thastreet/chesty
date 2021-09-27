@@ -13,30 +13,11 @@ const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_
 
 const axios = require('axios');
 
-var spotifyAccessToken = "";
 var playingSong = null;
 var queue = [];
 
 client.once('ready', () => {
 	console.log('Ready!');
-
-	const config = {
-		headers: {
-			"Authorization": "Basic " + Buffer.from(spotify_client_id + ":" + spotify_client_secret).toString('base64')
-		}
-	}
-
-	const params = new URLSearchParams();
-	params.append('grant_type', 'client_credentials');
-
-	axios
-		.post('https://accounts.spotify.com/api/token', params, config)
-		.then(res => {
-			spotifyAccessToken = res.data.access_token;
-		})
-		.catch(error => {
-			console.error(error)
-		})
 });
 
 client.once('reconnecting', () => {
@@ -76,27 +57,50 @@ function execute(message) {
 	}
 
 	if (url.includes("open.spotify.com")) {
-		const lastIndexOfSlash = url.lastIndexOf("/");
-		const indexOfParams = url.lastIndexOf("?");
-		const endIndex = indexOfParams != -1 ? indexOfParams : url.length
-		const trackId = url.substring(lastIndexOfSlash + 1, endIndex);
-
-		axios
-			.get("https://api.spotify.com/v1/tracks/" + trackId, { headers: { "Authorization": "Bearer " + spotifyAccessToken } })
-			.then(res => {
-				const trackName = res.data.name;
-				const artist = res.data.artists[0].name;
-				const query = artist + " " + trackName + " audio";
-				searchYoutube(query, message, voiceChannel);
-			})
-			.catch(error => {
-				console.error(error);
-			})
+		searchSpotify(url, message, voiceChannel);
 	} else if (url.includes("youtube.com")) {
 		playUrl(url, message, voiceChannel);
 	} else {
 		searchYoutube(url + " audio", message, voiceChannel);
 	}
+}
+
+function searchSpotify(url, message, voiceChannel) {
+	const config = {
+		headers: {
+			"Authorization": "Basic " + Buffer.from(spotify_client_id + ":" + spotify_client_secret).toString('base64')
+		}
+	}
+
+	const params = new URLSearchParams();
+	params.append('grant_type', 'client_credentials');
+
+	axios
+		.post('https://accounts.spotify.com/api/token', params, config)
+		.then(res => {
+			const accessToken = res.data.access_token;
+			
+			const lastIndexOfSlash = url.lastIndexOf("/");
+			const indexOfParams = url.lastIndexOf("?");
+			const endIndex = indexOfParams != -1 ? indexOfParams : url.length
+			const trackId = url.substring(lastIndexOfSlash + 1, endIndex);
+	
+			axios
+				.get("https://api.spotify.com/v1/tracks/" + trackId, { headers: { "Authorization": "Bearer " + accessToken } })
+				.then(res => {
+					const trackName = res.data.name;
+					const artist = res.data.artists[0].name;
+					const query = artist + " " + trackName + " audio";
+					searchYoutube(query, message, voiceChannel);
+				})
+				.catch(error => {
+					console.error(error);
+				})
+
+		})
+		.catch(error => {
+			console.error(error)
+		})
 }
 
 function searchYoutube(query, message, voiceChannel) {
