@@ -49,23 +49,16 @@ client.on('messageCreate', async message => {
 function execute(message) {
 	const url = message.content.substring(message.content.indexOf(' ') + 1, message.content.length);
 
-	const voiceChannel = message.member.voice.channel;
-	if (!voiceChannel) return message.channel.send('You need to be in a voice channel to play music!');
-	const permissions = voiceChannel.permissionsFor(message.client.user);
-	if (!permissions.has('CONNECT') || !permissions.has('SPEAK')) {
-		return message.channel.send('I need the permissions to join and speak in your voice channel!');
-	}
-
 	if (url.includes("open.spotify.com")) {
-		searchSpotify(url, message, voiceChannel);
+		searchSpotify(url, message);
 	} else if (url.includes("youtube.com")) {
-		playUrl(url, message, voiceChannel);
+		playUrl(url, message);
 	} else {
-		searchYoutube(url + " audio", message, voiceChannel);
+		searchYoutube(url + " audio", message);
 	}
 }
 
-function searchSpotify(url, message, voiceChannel) {
+function searchSpotify(url, message) {
 	const config = {
 		headers: {
 			"Authorization": "Basic " + Buffer.from(spotify_client_id + ":" + spotify_client_secret).toString('base64')
@@ -91,7 +84,7 @@ function searchSpotify(url, message, voiceChannel) {
 					const trackName = res.data.name;
 					const artist = res.data.artists[0].name;
 					const query = artist + " " + trackName + " audio";
-					searchYoutube(query, message, voiceChannel);
+					searchYoutube(query, message);
 				})
 				.catch(error => {
 					console.error(error);
@@ -103,49 +96,50 @@ function searchSpotify(url, message, voiceChannel) {
 		})
 }
 
-function searchYoutube(query, message, voiceChannel) {
+function searchYoutube(query, message) {
 	axios
 		.get("https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=" + encodeURIComponent(query) + "&key=" + youtube_api_key)
 		.then(res => {
 			const youtubeVideoId = res.data.items[0].id.videoId;
-			playUrl("https://www.youtube.com/watch?v=" + youtubeVideoId, message, voiceChannel);
+			playUrl("https://www.youtube.com/watch?v=" + youtubeVideoId, message);
 		})
 		.catch(error => {
 			console.error(error)
 		})
 }
 
-async function playUrl(url, message, voiceChannel) {
-	const songInfo = await ytdl.getInfo(url);
-	const song = {
-		title: songInfo.videoDetails.title,
-		url: songInfo.videoDetails.video_url,
-	};
-
-	if (playingSong == null) {
-		playingSong = {
-			connection: null,
-			player: createAudioPlayer()
+function playUrl(url, message) {
+	ytdl.getInfo(url).then((songInfo) => {
+		const song = {
+			title: songInfo.videoDetails.title,
+			url: songInfo.videoDetails.video_url,
 		};
-
-		try {
-			playingSong.connection = joinVoiceChannel({
-				channelId: message.member.voice.channel.id,
-				guildId: message.guild.id,
-				adapterCreator: message.guild.voiceAdapterCreator
-			});
-
-			play(message, song);
-		} catch (err) {
-			console.log(err);
-			playingSong = null;
-			return message.channel.send(err);
+	
+		if (playingSong == null) {
+			playingSong = {
+				connection: null,
+				player: createAudioPlayer()
+			};
+	
+			try {
+				playingSong.connection = joinVoiceChannel({
+					channelId: message.member.voice.channel.id,
+					guildId: message.guild.id,
+					adapterCreator: message.guild.voiceAdapterCreator
+				});
+	
+				play(message, song);
+			} catch (err) {
+				console.log(err);
+				playingSong = null;
+				return message.channel.send(err);
+			}
+		} else {
+			queue.push(song);
+			console.log(queue);
+			return message.channel.send(`${song.title} has been added to the queue!`);
 		}
-	} else {
-		queue.push(song);
-		console.log(queue);
-		return message.channel.send(`${song.title} has been added to the queue!`);
-	}
+	  });
 }
 
 function clear(message) {
