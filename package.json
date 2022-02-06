@@ -5,8 +5,8 @@
     "main": "bot.js",
     "author": "thastreet",
     "dependencies": {
-        "@discordjs/voice": "^0.7.5",
-        "axios": "^0.24.0",
+        "@discordjs/voice": "^0.8.0",
+        "axios": "^0.25.0",
         "discord.js": "^13.5.1",
         "ffmpeg": "0.0.4",
         "ffmpeg-static": "^4.4.1",
