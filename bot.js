@@ -161,7 +161,7 @@ function play(message, song) {
 
 	const stream = ytdl(song.url, {
 		quality: 'highestaudio',
-		highWaterMark: 1 << 25
+		highWaterMark: 1 << 10
 	})
 	playingSong.player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
 	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(message))
