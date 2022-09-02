@@ -194,20 +194,22 @@ function skip(interaction) {
 }
 
 function play(interaction, song) {
-	interaction.reply('Yezzir playing: ' + song.url);
+	if (interaction) {
+		interaction.reply('Yezzir playing: ' + song.url);
+	}
 
 	const stream = ytdl(song.url, {
 		quality: 'highestaudio',
 		highWaterMark: 1 << 25
 	})
 	playingSong.player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
-	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(interaction))
+	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong())
 	playingSong.connection.subscribe(playingSong.player);
 }
 
-function playNextSong(interaction) {
+function playNextSong() {
 	if (queue.length > 0) {
-		play(interaction, queue.shift());
+		play(null, queue.shift());
 		console.log(queue);
 	} else {
 		playingSong = null;
