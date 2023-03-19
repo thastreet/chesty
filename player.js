@@ -8,7 +8,8 @@ const { getVideoId, getPlaylistIds } = require("./youtube.js");
 const CommandNames = {
     Play: "play",
     Skip: "skip",
-    Clear: "clear"
+    Clear: "clear",
+    Stop: "stop"
 };
 
 function listenForInteraction(client, queue, player) {
@@ -19,6 +20,8 @@ function listenForInteraction(client, queue, player) {
             skip(player, interaction);
         } else if (interaction.commandName === CommandNames.Clear) {
             clear(queue, interaction);
+        } else if (interaction.commandName === CommandNames.Stop) {
+            stop(queue, player, interaction);
         }
 
         listenForInteraction(client, queue, player);
@@ -68,6 +71,12 @@ function clear(queue, interaction) {
     }
 
     sendMessage("The queue has been cleared!", interaction);
+}
+
+function stop(queue, player, interaction) {
+    clear(queue, null);
+    player.stop();
+    sendMessage("Stopped", interaction);
 }
 
 function getYoutubeUrl(videoId) {

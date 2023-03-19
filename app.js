@@ -28,7 +28,10 @@ const commands = [
 		.setDescription("Skip the current song"),
 	new SlashCommandBuilder()
 		.setName(CommandNames.Clear)
-		.setDescription("Clear the queue")
+		.setDescription("Clear the queue"),
+	new SlashCommandBuilder()
+		.setName(CommandNames.Stop)
+		.setDescription("Stop the bot")
 ].map(command => command.toJSON());
 
 const rest = new REST().setToken(token);
