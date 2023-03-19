@@ -2,7 +2,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const { createAudioResource, createAudioPlayer, joinVoiceChannel, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
+const { createAudioResource, createAudioPlayer, joinVoiceChannel, StreamType, AudioPlayerStatus, AudioPlayer } = require('@discordjs/voice');
 const { token, spotify_client_id, spotify_client_secret, youtube_api_key, client_id, guild_id } = require('./config.json');
 const ytdl = require('ytdl-core');
 const axios = require('axios');
@@ -57,34 +57,35 @@ client.once('disconnect', () => {
 	console.log('Disconnect!');
 });
 
-onInteraction([], null);
+onInteraction([], createAudioPlayer());
 
-function onInteraction(queue, playingSong) {
+function onInteraction(queue, player) {
 	client.once('interactionCreate', async interaction => {
 		if (interaction.commandName === 'play') {
 			const query = interaction.options.getString('query')
-			execute(queue, playingSong, interaction, query);
+			execute(queue, interaction, query, player);
 		} else if (interaction.commandName === 'skip') {
-			skip(playingSong, interaction);
+			interaction.reply(`Skipping!`);
+			player.stop();
 		} else if (interaction.commandName === 'clear') {
 			clear(queue, interaction);
 		}
 
-		onInteraction(queue)
+		onInteraction(queue, player)
 	});
 }
 
-function execute(queue, playingSong, interaction, query) {
+function execute(queue, interaction, query, player) {
 	if (query.includes("open.spotify.com")) {
-		searchSpotify(queue, playingSong, query, interaction);
+		searchSpotify(queue, query, interaction);
 	} else if (query.includes("youtube.com")) {
-		playUrl(queue, playingSong, query, interaction);
+		playUrl(queue, query, interaction, player);
 	} else {
-		searchYoutube(query + " audio", interaction);
+		searchYoutube(query + " audio", interaction, player);
 	}
 }
 
-function searchSpotify(queue, playingSong, url, interaction) {
+function searchSpotify(queue, url, interaction) {
 	const config = {
 		headers: {
 			"Authorization": "Basic " + Buffer.from(spotify_client_id + ":" + spotify_client_secret).toString('base64')
@@ -110,7 +111,7 @@ function searchSpotify(queue, playingSong, url, interaction) {
 					const trackName = res.data.name;
 					const artist = res.data.artists[0].name;
 					const query = artist + " " + trackName + " audio";
-					searchYoutube(queue, playingSong, query, interaction);
+					searchYoutube(queue, query, interaction);
 				})
 				.catch(error => {
 					console.error(error);
@@ -122,44 +123,45 @@ function searchSpotify(queue, playingSong, url, interaction) {
 		})
 }
 
-function searchYoutube(queue, playingSong, query, interaction) {
+function searchYoutube(queue, query, interaction, player) {
 	axios
 		.get("https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=" + encodeURIComponent(query) + "&key=" + youtube_api_key)
 		.then(res => {
 			const youtubeVideoId = res.data.items[0].id.videoId;
-			playUrl(queue, playingSong, "https://www.youtube.com/watch?v=" + youtubeVideoId, interaction);
+			playUrl(queue, "https://www.youtube.com/watch?v=" + youtubeVideoId, interaction, player);
 		})
 		.catch(error => {
 			console.error(error)
 		})
 }
 
-function playUrl(queue, playingSong, url, interaction) {
+function playUrl(queue, url, interaction, player) {
 	ytdl.getInfo(url).then((songInfo) => {
 		const song = {
 			title: songInfo.videoDetails.title,
 			url: songInfo.videoDetails.video_url,
 		};
 
-		if (playingSong == null) {
-			const newPlayingSong = {
-				connection: null,
-				player: createAudioPlayer()
-			};
-
+		if (player.state.status == AudioPlayerStatus.Idle) {
 			try {
 				const voiceChannel = interaction.member.voice.channel;
 
-				newPlayingSong.connection = joinVoiceChannel({
+				const connection = joinVoiceChannel({
 					channelId: voiceChannel.id,
 					guildId: guild_id,
 					adapterCreator: voiceChannel.guild.voiceAdapterCreator
 				});
 
-				play(queue, newPlayingSong, interaction, song);
+				const playNextSong = () => {
+					if (queue.length > 0) {
+						play(null, queue.shift(), connection, player, playNextSong);
+						console.log(queue);
+					}
+				};
+
+				play(interaction, song, connection, player, playNextSong);
 			} catch (err) {
 				console.log(err);
-				playingSong = null;
 				interaction.reply(err);
 			}
 		} else {
@@ -177,12 +179,7 @@ function clear(queue, interaction) {
 	interaction.reply(`The queue has been cleared!`);
 }
 
-function skip(playingSong, interaction) {
-	interaction.reply(`Skipping!`);
-	playingSong.player.stop();
-}
-
-function play(queue, playingSong, interaction, song) {
+function play(interaction, song, connection, player, playNextSong) {
 	if (interaction) {
 		interaction.reply('Yezzir playing: ' + song.url);
 	}
@@ -191,16 +188,9 @@ function play(queue, playingSong, interaction, song) {
 		quality: 'highestaudio',
 		highWaterMark: 1 << 25
 	})
-	playingSong.player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
-	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(queue))
-	playingSong.connection.subscribe(playingSong.player);
-}
-
-function playNextSong(queue) {
-	if (queue.length > 0) {
-		play(queue, null, queue.shift());
-		console.log(queue);
-	}
+	player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
+	player.on(AudioPlayerStatus.Idle, playNextSong)
+	connection.subscribe(player);
 }
 
 client.login(token);
