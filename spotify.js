@@ -2,7 +2,7 @@ const { spotify_client_id, spotify_client_secret } = require("./config.json");
 const axios = require("axios");
 
 module.exports = {
-    getSpotifyMetadata: function (url, onMetadataReceived) {
+    getMetadata: function (url, onMetadataReceived) {
         const base64 = Buffer.from(`${spotify_client_id}:${spotify_client_secret}`).toString("base64");
         const config = {
             headers: {
