@@ -37,8 +37,7 @@ function resolveQuery(queue, interaction, query, player) {
     if (query.includes("open.spotify.com")) {
         getMetadata(query, (trackName, artist) => {
             getVideoId(`${artist} ${trackName} audio`, (videoId) => {
-                const youtubeUrl = getYoutubeUrl(videoId)
-                playYoutubeUrls([youtubeUrl], queue, interaction, player);
+                playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
             });
         });
     } else if (query.includes("youtube.com") && query.includes("list=")) {
@@ -49,11 +48,10 @@ function resolveQuery(queue, interaction, query, player) {
             playYoutubeUrls(urls, queue, interaction, player);
         });
     } else if (query.includes("youtube.com")) {
-        playYoutubeUrls([query], queue, interaction, player);
+        playYoutubeUrl(query, queue, interaction, player);
     } else {
         getVideoId(`${query} audio`, (videoId) => {
-            const youtubeUrl = getYoutubeUrl(videoId)
-            playYoutubeUrls([youtubeUrl], queue, interaction, player);
+            playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
         });
     }
 }
@@ -81,6 +79,10 @@ function stop(queue, player, interaction) {
 
 function getYoutubeUrl(videoId) {
     return `https://www.youtube.com/watch?v=${videoId}`
+}
+
+function playYoutubeUrl(url, queue, interaction, player) {
+    playYoutubeUrls([url], queue, interaction, player);
 }
 
 function playYoutubeUrls(urls, queue, interaction, player) {
