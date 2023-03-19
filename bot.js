@@ -3,16 +3,9 @@ const { SlashCommandBuilder } = require('@discordjs/builders');
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
 const { createAudioResource, createAudioPlayer, joinVoiceChannel, StreamType, AudioPlayerStatus } = require('@discordjs/voice');
-const {
-	prefix,
-	token,
-	spotify_client_id,
-	spotify_client_secret,
-	youtube_api_key,
-	client_id,
-	guild_id
-} = require('./config.json');
+const { token, spotify_client_id, spotify_client_secret, youtube_api_key, client_id, guild_id } = require('./config.json');
 const ytdl = require('ytdl-core');
+const axios = require('axios');
 
 const client = new Client({
 	intents: [
@@ -21,8 +14,6 @@ const client = new Client({
 		GatewayIntentBits.GuildVoiceStates
 	]
 });
-
-const axios = require('axios');
 
 const commands = [
 	new SlashCommandBuilder()
@@ -41,10 +32,7 @@ const commands = [
 		.setDescription('Clear the queue')
 ].map(command => command.toJSON());
 
-const rest = new REST({ version: '10' }).setToken(token);
-
-var playingSong = null;
-var queue = [];
+const rest = new REST().setToken(token);
 
 (async () => {
 	try {
@@ -56,7 +44,6 @@ var queue = [];
 		console.error(error);
 	}
 })();
-
 
 client.once('ready', () => {
 	console.log('Ready!');
@@ -70,30 +57,34 @@ client.once('disconnect', () => {
 	console.log('Disconnect!');
 });
 
-client.on('interactionCreate', async interaction => {
-	if (interaction.commandName === 'play') {
-		const query = interaction.options.getString('query')
-		execute(interaction, query);
-	} else if (interaction.commandName === 'skip') {
-		skip(interaction);
-		return;
-	} else if (interaction.commandName === 'clear') {
-		clear(interaction);
-		return;
-	}
-});
+onInteraction([], null);
 
-function execute(interaction, query) {
+function onInteraction(queue, playingSong) {
+	client.once('interactionCreate', async interaction => {
+		if (interaction.commandName === 'play') {
+			const query = interaction.options.getString('query')
+			execute(queue, playingSong, interaction, query);
+		} else if (interaction.commandName === 'skip') {
+			skip(playingSong, interaction);
+		} else if (interaction.commandName === 'clear') {
+			clear(queue, interaction);
+		}
+
+		onInteraction(queue)
+	});
+}
+
+function execute(queue, playingSong, interaction, query) {
 	if (query.includes("open.spotify.com")) {
-		searchSpotify(query, interaction);
+		searchSpotify(queue, playingSong, query, interaction);
 	} else if (query.includes("youtube.com")) {
-		playUrl(query, interaction);
+		playUrl(queue, playingSong, query, interaction);
 	} else {
 		searchYoutube(query + " audio", interaction);
 	}
 }
 
-function searchSpotify(url, interaction) {
+function searchSpotify(queue, playingSong, url, interaction) {
 	const config = {
 		headers: {
 			"Authorization": "Basic " + Buffer.from(spotify_client_id + ":" + spotify_client_secret).toString('base64')
@@ -119,7 +110,7 @@ function searchSpotify(url, interaction) {
 					const trackName = res.data.name;
 					const artist = res.data.artists[0].name;
 					const query = artist + " " + trackName + " audio";
-					searchYoutube(query, interaction);
+					searchYoutube(queue, playingSong, query, interaction);
 				})
 				.catch(error => {
 					console.error(error);
@@ -131,19 +122,19 @@ function searchSpotify(url, interaction) {
 		})
 }
 
-function searchYoutube(query, interaction) {
+function searchYoutube(queue, playingSong, query, interaction) {
 	axios
 		.get("https://youtube.googleapis.com/youtube/v3/search?part=snippet&maxResults=25&q=" + encodeURIComponent(query) + "&key=" + youtube_api_key)
 		.then(res => {
 			const youtubeVideoId = res.data.items[0].id.videoId;
-			playUrl("https://www.youtube.com/watch?v=" + youtubeVideoId, interaction);
+			playUrl(queue, playingSong, "https://www.youtube.com/watch?v=" + youtubeVideoId, interaction);
 		})
 		.catch(error => {
 			console.error(error)
 		})
 }
 
-function playUrl(url, interaction) {
+function playUrl(queue, playingSong, url, interaction) {
 	ytdl.getInfo(url).then((songInfo) => {
 		const song = {
 			title: songInfo.videoDetails.title,
@@ -151,7 +142,7 @@ function playUrl(url, interaction) {
 		};
 
 		if (playingSong == null) {
-			playingSong = {
+			const newPlayingSong = {
 				connection: null,
 				player: createAudioPlayer()
 			};
@@ -159,13 +150,13 @@ function playUrl(url, interaction) {
 			try {
 				const voiceChannel = interaction.member.voice.channel;
 
-				playingSong.connection = joinVoiceChannel({
+				newPlayingSong.connection = joinVoiceChannel({
 					channelId: voiceChannel.id,
 					guildId: guild_id,
 					adapterCreator: voiceChannel.guild.voiceAdapterCreator
 				});
 
-				play(interaction, song);
+				play(queue, newPlayingSong, interaction, song);
 			} catch (err) {
 				console.log(err);
 				playingSong = null;
@@ -179,21 +170,19 @@ function playUrl(url, interaction) {
 	});
 }
 
-function clear(interaction) {
+function clear(queue, interaction) {
 	if (queue.length == 0) return;
 	queue = [];
 	console.log(queue);
 	interaction.reply(`The queue has been cleared!`);
 }
 
-function skip(interaction) {
-	if (playingSong != null) {
-		interaction.reply(`Skipping!`);
-		playingSong.player.stop();
-	}
+function skip(playingSong, interaction) {
+	interaction.reply(`Skipping!`);
+	playingSong.player.stop();
 }
 
-function play(interaction, song) {
+function play(queue, playingSong, interaction, song) {
 	if (interaction) {
 		interaction.reply('Yezzir playing: ' + song.url);
 	}
@@ -203,16 +192,14 @@ function play(interaction, song) {
 		highWaterMark: 1 << 25
 	})
 	playingSong.player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
-	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong())
+	playingSong.player.on(AudioPlayerStatus.Idle, () => playNextSong(queue))
 	playingSong.connection.subscribe(playingSong.player);
 }
 
-function playNextSong() {
+function playNextSong(queue) {
 	if (queue.length > 0) {
-		play(null, queue.shift());
+		play(queue, null, queue.shift());
 		console.log(queue);
-	} else {
-		playingSong = null;
 	}
 }
 
