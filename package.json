@@ -2,7 +2,7 @@
     "name": "chesty",
     "version": "1.0.0",
     "description": "Bocata Ronda Discord Bot",
-    "main": "bot.js",
+    "main": "app.js",
     "author": "thastreet",
     "dependencies": {
         "@discordjs/rest": "1.6.0",
