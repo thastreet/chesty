@@ -3,9 +3,10 @@ const { SlashCommandBuilder } = require("@discordjs/builders");
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v9");
 const { createAudioResource, createAudioPlayer, joinVoiceChannel, StreamType, AudioPlayerStatus, AudioPlayer } = require("@discordjs/voice");
-const { token, spotify_client_id, spotify_client_secret, youtube_api_key, client_id, guild_id } = require("./config.json");
+const { token, youtube_api_key, client_id, guild_id } = require("./config.json");
 const ytdl = require("ytdl-core");
 const axios = require("axios");
+const { getSpotifyMetadata } = require("./spotify/spotify.js");
 
 const client = new Client({
 	intents: [
@@ -16,7 +17,7 @@ const client = new Client({
 });
 
 const commandNames = {
-    play: "play",
+	play: "play",
 	skip: "skip",
 	clear: "clear"
 };
@@ -75,51 +76,15 @@ function onInteraction(queue, player) {
 
 function resolveQuery(queue, interaction, query, player) {
 	if (query.includes("open.spotify.com")) {
-		searchSpotify(queue, query, interaction, player);
+		getSpotifyMetadata(query, (trackName, artist) => {
+			const query = `${artist} ${trackName} audio`;
+			searchYoutube(queue, query, interaction, player);
+		});
 	} else if (query.includes("youtube.com")) {
 		playUrl(queue, query, interaction, player);
 	} else {
 		searchYoutube(`${query} audio`, interaction, player);
 	}
-}
-
-function searchSpotify(queue, url, interaction, player) {
-	const base64 = Buffer.from(`${spotify_client_id}:${spotify_client_secret}`).toString("base64");
-	const config = {
-		headers: {
-			"Authorization": `Basic ${base64}`
-		}
-	};
-
-	const params = new URLSearchParams();
-	params.append("grant_type", "client_credentials");
-
-	axios
-		.post("https://accounts.spotify.com/api/token", params, config)
-		.then(res => {
-			const accessToken = res.data.access_token;
-
-			const lastIndexOfSlash = url.lastIndexOf("/");
-			const indexOfParams = url.lastIndexOf("?");
-			const endIndex = indexOfParams != -1 ? indexOfParams : url.length;
-			const trackId = url.substring(lastIndexOfSlash + 1, endIndex);
-
-			axios
-				.get(`https://api.spotify.com/v1/tracks/${trackId}`, { headers: { "Authorization": `Bearer ${accessToken}` } })
-				.then(res => {
-					const trackName = res.data.name;
-					const artist = res.data.artists[0].name;
-					const query = `${artist} ${trackName} audio`;
-					searchYoutube(queue, query, interaction, player);
-				})
-				.catch(error => {
-					console.error(error);
-				});
-
-		})
-		.catch(error => {
-			console.error(error)
-		});
 }
 
 function searchYoutube(queue, query, interaction, player) {
