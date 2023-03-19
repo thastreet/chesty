@@ -17,10 +17,10 @@ const client = new Client({
 const commands = [
 	new SlashCommandBuilder()
 		.setName(CommandNames.Play)
-		.setDescription("Play your favourite song")
+		.setDescription("Play a song")
 		.addStringOption(option =>
 			option.setName("query")
-				.setDescription("Could be the Youtube url, Spotify share link or a text query")
+				.setDescription("Could be the Youtube url, Spotify link or a text query")
 				.setRequired(true)
 		),
 	new SlashCommandBuilder()
