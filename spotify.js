@@ -1,8 +1,9 @@
 const { spotify_client_id, spotify_client_secret } = require("./config.json");
 const axios = require("axios");
+const url = require('url');
 
 module.exports = {
-    getMetadata: function (url, onMetadataReceived) {
+    getMetadata: function (songUrl, onMetadataReceived) {
         const base64 = Buffer.from(`${spotify_client_id}:${spotify_client_secret}`).toString("base64");
         const config = {
             headers: {
@@ -17,11 +18,7 @@ module.exports = {
             .post("https://accounts.spotify.com/api/token", params, config)
             .then(res => {
                 const accessToken = res.data.access_token;
-
-                const lastIndexOfSlash = url.lastIndexOf("/");
-                const indexOfParams = url.lastIndexOf("?");
-                const endIndex = indexOfParams != -1 ? indexOfParams : url.length;
-                const trackId = url.substring(lastIndexOfSlash + 1, endIndex);
+                const trackId = url.parse(songUrl, true).pathname.split("/").slice(-1)[0];
 
                 axios
                     .get(`https://api.spotify.com/v1/tracks/${trackId}`, { headers: { "Authorization": `Bearer ${accessToken}` } })

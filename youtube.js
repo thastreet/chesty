@@ -1,6 +1,6 @@
 const { youtube_api_key } = require("./config.json");
 const axios = require("axios");
-var url = require('url');
+const url = require('url');
 
 module.exports = {
     getVideoId: function (query, onIdReceived) {
