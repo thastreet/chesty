@@ -137,6 +137,7 @@ function playSong(url, interaction, connection, player, playNextSong, newQueue) 
 
     const stream = ytdl(url, {
         quality: "highestaudio",
+        filter: 'audioonly',
         highWaterMark: 1 << 25
     });
 
