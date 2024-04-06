@@ -7,13 +7,13 @@
     "dependencies": {
         "@discordjs/rest": "2.2.0",
         "@discordjs/voice": "0.16.1",
-        "axios": "1.6.2",
+        "axios": "1.6.8",
         "discord.js": "14.14.1",
         "ffmpeg": "0.0.4",
         "ffmpeg-static": "5.2.0",
         "libsodium-wrappers": "0.7.13",
-        "npm": "^10.2.5",
-        "opusscript": "0.1.0",
+        "npm": "^10.5.1",
+        "opusscript": "0.1.1",
         "ytdl-core": "4.11.5"
     },
     "scripts": {
@@ -21,6 +21,6 @@
     },
     "engines": {
         "node": "18.18.2",
-        "npm": "10.2.5"
+        "npm": "10.5.1"
     }
 }
