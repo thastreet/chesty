@@ -19,7 +19,7 @@ function listenForInteraction(client, queue, player) {
         if (interaction.commandName === CommandNames.Play) {
             resolveQuery(queue, interaction, interaction.options.getString("query"), player);
         } else if (interaction.commandName === CommandNames.Skip) {
-            skip(player, interaction);
+            skip(queue, player, interaction);
         } else if (interaction.commandName === CommandNames.Clear) {
             clear(queue, interaction);
         } else if (interaction.commandName === CommandNames.Stop) {
@@ -78,9 +78,16 @@ function resolveQuery(queue, interaction, query, player) {
     }
 }
 
-function skip(player, interaction) {
-    sendMessage("Skipping!", interaction);
+function skip(queue, player, interaction) {
+    const connection = player.subscribers[0].connection;
+
     player.stop();
+    
+    if (queue.length > 0) {
+        playSong(queue.shift(), interaction, connection, player, 0);
+    } else {
+        sendMessage("No more songs to play", interaction);
+    }
 }
 
 function clear(queue, interaction) {
@@ -100,7 +107,7 @@ function stop(queue, player, interaction) {
 }
 
 function getYoutubeUrl(videoId) {
-    return `https://www.youtube.com/watch?v=${videoId}`
+    return `https://www.youtube.com/watch?v=${videoId}`;
 }
 
 function playYoutubeUrl(url, queue, interaction, player) {
@@ -123,7 +130,7 @@ function playSongs(songs, queue, interaction, player) {
     queue.push(...newQueue);
 
     if (player.state.status == AudioPlayerStatus.Idle) {
-        joinVoiceChannelAndPlaySong(firstSong, queue, interaction, player, newQueue);
+        joinVoiceChannelAndPlaySong(firstSong, interaction, player, newQueue.length);
     } else if (newQueue.length == 1) {
         const song = newQueue[0];
         const id = song.type == "url" ? song.data : (song.type == "track" ? song.data.name : "");
@@ -134,7 +141,7 @@ function playSongs(songs, queue, interaction, player) {
     }
 }
 
-function joinVoiceChannelAndPlaySong(song, queue, interaction, player, newQueue) {
+function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount) {
     try {
         const voiceChannel = interaction.member.voice.channel;
 
@@ -144,24 +151,16 @@ function joinVoiceChannelAndPlaySong(song, queue, interaction, player, newQueue)
             adapterCreator: voiceChannel.guild.voiceAdapterCreator
         });
 
-        const playNextSong = () => {
-            if (queue.length > 0) {
-                playSong(queue.shift(), null, connection, player, playNextSong, []);
-            } else {
-                console.log("No more songs to play");
-            }
-        };
-
-        playSong(song, interaction, connection, player, playNextSong, newQueue);
+        playSong(song, interaction, connection, player, addedCount);
     } catch (err) {
         console.error(err);
     }
 }
 
-async function playSong(song, interaction, connection, player, playNextSong, newQueue) {
+async function playSong(song, interaction, connection, player, addedCount) {
     if (song.type == "url") {
         const url = song.data;
-        const baseMessage = `Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : "");
+        const baseMessage = `Playing: ${url}` + (addedCount > 0 ? `, added ${addedCount} songs to queue` : "");
         const interactionResponse = await sendMessage(baseMessage, interaction);
 
         var lengthSeconds = "0";
@@ -183,12 +182,10 @@ async function playSong(song, interaction, connection, player, playNextSong, new
             if (timerId) {
                 clearInterval(timerId);
             }
-
-            playNextSong();
         });
 
         player.on(AudioPlayerStatus.Playing, () => {
-            timerId = setInterval(playbackTimer, 500);
+            timerId = setInterval(playbackTimer, 300);
 
             function playbackTimer() {
                 const playbackDuration = moment.utc(player.state.playbackDuration).format('mm:ss');
@@ -203,7 +200,7 @@ async function playSong(song, interaction, connection, player, playNextSong, new
         const query = song.data.artist + " - " + song.data.name;
         queryVideoId(query, (videoId) => {
             const song = { type: "url", data: getYoutubeUrl(videoId) };
-            playSong(song, interaction, connection, player, playNextSong, newQueue);
+            playSong(song, interaction, connection, player, addedCount);
         });
     }
 }
