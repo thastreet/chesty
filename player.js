@@ -107,7 +107,7 @@ function stop(queue, player, interaction) {
 }
 
 function getYoutubeUrl(videoId) {
-    return `https://www.youtube.com/watch?v=${videoId}`;
+    return `https://www.youtube.com/watch?v=${videoId}`
 }
 
 function playYoutubeUrl(url, queue, interaction, player) {
@@ -185,13 +185,25 @@ async function playSong(song, interaction, connection, player, addedCount) {
         });
 
         player.on(AudioPlayerStatus.Playing, () => {
-            timerId = setInterval(playbackTimer, 300);
+            timerId = setInterval(playbackTimer, 1000);
 
             function playbackTimer() {
-                const playbackDuration = moment.utc(player.state.playbackDuration).format('mm:ss');
-                const length = moment.utc(Number(lengthSeconds) * 1000).format('mm:ss');
+                const playbackDurationMs = player.state.playbackDuration;
+                const totalDurationMs = Number(lengthSeconds) * 1000;
+                const playbackPercent = playbackDurationMs / totalDurationMs * 100;
 
-                interactionResponse.interaction.editReply({ content: baseMessage + "\n" + playbackDuration + "/" + length, components: [] });
+                const progressLength = 30;
+                var progressBar = "[";
+
+                for (var i = 0; i < progressLength; i++) {
+                    progressBar += playbackPercent < (i / (progressLength - 1) * 100) ? "░" : "▓";
+                }
+
+                progressBar += "]";
+
+                const progressMessage = moment.utc(playbackDurationMs).format('mm:ss') + "  " + progressBar + "  " + moment.utc(totalDurationMs).format('mm:ss');
+
+                interactionResponse.interaction.editReply({ content: baseMessage + "\n" + progressMessage, components: [] });
             }
         });
 
