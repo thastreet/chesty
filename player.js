@@ -2,7 +2,7 @@ const { createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } =
 const ytdl = require("ytdl-core");
 const { guild_id } = require("./config.json");
 
-const { getSongMetadata, getPlaylistMetadata } = require("./spotify.js");
+const { getSongMetadata, getPlaylistMetadata, getAlbumMetadata } = require("./spotify.js");
 const { getVideoId, getPlaylistIds } = require("./youtube.js");
 
 const CommandNames = {
@@ -37,6 +37,13 @@ function resolveQuery(queue, interaction, query, player) {
     if (query.includes("open.spotify.com")) {
         if (query.includes("/playlist")) {
             getPlaylistMetadata(query, (tracks) => {
+                const songs = tracks.map((track) => {
+                    return { type: "track", data: track };
+                });
+                playSongs(songs, queue, interaction, player)
+            });
+        } else if (query.includes("/album")) {
+            getAlbumMetadata(query, (tracks) => {
                 const songs = tracks.map((track) => {
                     return { type: "track", data: track };
                 });
