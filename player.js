@@ -5,6 +5,8 @@ const { guild_id } = require("./config.json");
 const { getSongMetadata, getPlaylistMetadata, getAlbumMetadata } = require("./spotify.js");
 const { getVideoId, getPlaylistIds } = require("./youtube.js");
 
+const moment = require("moment");
+
 const CommandNames = {
     Play: "play",
     Skip: "skip",
@@ -152,33 +154,58 @@ function joinVoiceChannelAndPlaySong(song, queue, interaction, player, newQueue)
     }
 }
 
-function playSong(song, interaction, connection, player, playNextSong, newQueue) {
+async function playSong(song, interaction, connection, player, playNextSong, newQueue) {
     if (song.type == "url") {
         const url = song.data;
-        sendMessage(`Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : ""), interaction);
+        const interactionResponse = await sendMessage(`Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : ""), interaction);
+
+        var lengthSeconds = "0";
 
         const stream = ytdl(url, {
             quality: "highestaudio",
             filter: 'audioonly',
             highWaterMark: 1 << 25
+        }).on('info', (info) => {
+            lengthSeconds = info.videoDetails.lengthSeconds;
         });
-    
+
         player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
         player.removeAllListeners();
-        player.on(AudioPlayerStatus.Idle, playNextSong);
+
+        var timerId;
+
+        player.on(AudioPlayerStatus.Idle, () => {
+            if (timerId) {
+                clearInterval(timerId);
+            }
+
+            playNextSong();
+        });
+
+        player.on(AudioPlayerStatus.Playing, () => {
+            timerId = setInterval(playbackTimer, 500);
+
+            function playbackTimer() {
+                const playbackDuration = moment.utc(player.state.playbackDuration).format('mm:ss');
+                const length = moment.utc(Number(lengthSeconds) * 1000).format('mm:ss');
+
+                interactionResponse.interaction.editReply({ content: playbackDuration + "/" + length, components: [] });
+            }
+        });
+
         connection.subscribe(player);
     } else if (song.type == "track") {
         const query = song.data.artist + " - " + song.data.name;
         getVideoId(`${query} audio`, (videoId) => {
-            const song = {type: "url", data: getYoutubeUrl(videoId)};
+            const song = { type: "url", data: getYoutubeUrl(videoId) };
             playSong(song, interaction, connection, player, playNextSong, newQueue);
         });
     }
 }
 
-function sendMessage(message, interaction) {
+async function sendMessage(message, interaction) {
     console.log(message);
     if (interaction) {
-        interaction.reply(message);
+        return await interaction.reply(message);
     }
 }
