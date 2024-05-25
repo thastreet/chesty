@@ -35,6 +35,10 @@ module.exports = {
     CommandNames: CommandNames
 };
 
+function queryVideoId(query, onIdReceived) {
+    getVideoId(`${query} audio`, onIdReceived);
+}
+
 function resolveQuery(queue, interaction, query, player) {
     if (query.includes("open.spotify.com")) {
         if (query.includes("/playlist")) {
@@ -53,7 +57,7 @@ function resolveQuery(queue, interaction, query, player) {
             });
         } else {
             getSongMetadata(query, (trackName, artist) => {
-                getVideoId(`${artist} ${trackName} audio`, (videoId) => {
+                queryVideoId(`${artist} ${trackName}`, (videoId) => {
                     playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
                 });
             });
@@ -68,7 +72,7 @@ function resolveQuery(queue, interaction, query, player) {
     } else if (query.includes("youtube.com")) {
         playYoutubeUrl(query, queue, interaction, player);
     } else {
-        getVideoId(`${query} audio`, (videoId) => {
+        queryVideoId(query, (videoId) => {
             playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
         });
     }
@@ -157,7 +161,8 @@ function joinVoiceChannelAndPlaySong(song, queue, interaction, player, newQueue)
 async function playSong(song, interaction, connection, player, playNextSong, newQueue) {
     if (song.type == "url") {
         const url = song.data;
-        const interactionResponse = await sendMessage(`Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : ""), interaction);
+        const baseMessage = `Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : "");
+        const interactionResponse = await sendMessage(baseMessage, interaction);
 
         var lengthSeconds = "0";
 
@@ -189,14 +194,14 @@ async function playSong(song, interaction, connection, player, playNextSong, new
                 const playbackDuration = moment.utc(player.state.playbackDuration).format('mm:ss');
                 const length = moment.utc(Number(lengthSeconds) * 1000).format('mm:ss');
 
-                interactionResponse.interaction.editReply({ content: playbackDuration + "/" + length, components: [] });
+                interactionResponse.interaction.editReply({ content: baseMessage + "\n" + playbackDuration + "/" + length, components: [] });
             }
         });
 
         connection.subscribe(player);
     } else if (song.type == "track") {
         const query = song.data.artist + " - " + song.data.name;
-        getVideoId(`${query} audio`, (videoId) => {
+        queryVideoId(query, (videoId) => {
             const song = { type: "url", data: getYoutubeUrl(videoId) };
             playSong(song, interaction, connection, player, playNextSong, newQueue);
         });
