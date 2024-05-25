@@ -2,7 +2,7 @@ const { createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } =
 const ytdl = require("ytdl-core");
 const { guild_id } = require("./config.json");
 
-const { getMetadata } = require("./spotify.js");
+const { getSongMetadata, getPlaylistMetadata } = require("./spotify.js");
 const { getVideoId, getPlaylistIds } = require("./youtube.js");
 
 const CommandNames = {
@@ -35,17 +35,26 @@ module.exports = {
 
 function resolveQuery(queue, interaction, query, player) {
     if (query.includes("open.spotify.com")) {
-        getMetadata(query, (trackName, artist) => {
-            getVideoId(`${artist} ${trackName} audio`, (videoId) => {
-                playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
+        if (query.includes("/playlist")) {
+            getPlaylistMetadata(query, (tracks) => {
+                const songs = tracks.map((track) => {
+                    return { type: "track", data: track };
+                });
+                playSongs(songs, queue, interaction, player)
             });
-        });
+        } else {
+            getSongMetadata(query, (trackName, artist) => {
+                getVideoId(`${artist} ${trackName} audio`, (videoId) => {
+                    playYoutubeUrl(getYoutubeUrl(videoId), queue, interaction, player);
+                });
+            });
+        }
     } else if (query.includes("youtube.com") && query.includes("list=")) {
         getPlaylistIds(query, (ids) => {
-            const urls = ids.map((id) => {
-                return getYoutubeUrl(id);
+            const songs = ids.map((id) => {
+                return { type: "url", data: getYoutubeUrl(id) };
             });
-            playYoutubeUrls(urls, queue, interaction, player);
+            playSongs(songs, queue, interaction, player);
         });
     } else if (query.includes("youtube.com")) {
         playYoutubeUrl(query, queue, interaction, player);
@@ -82,12 +91,13 @@ function getYoutubeUrl(videoId) {
 }
 
 function playYoutubeUrl(url, queue, interaction, player) {
-    playYoutubeUrls([url], queue, interaction, player);
+    const song = { type: "url", data: url };
+    playSongs([song], queue, interaction, player);
 }
 
-function playYoutubeUrls(urls, queue, interaction, player) {
-    const firstSong = urls.slice(0, 1)[0];
-    const otherSongs = urls.slice(1, urls.length);
+function playSongs(songs, queue, interaction, player) {
+    const firstSong = songs.slice(0, 1)[0];
+    const otherSongs = songs.slice(1, songs.length);
 
     const newQueue = [];
 
@@ -102,13 +112,16 @@ function playYoutubeUrls(urls, queue, interaction, player) {
     if (player.state.status == AudioPlayerStatus.Idle) {
         joinVoiceChannelAndPlaySong(firstSong, queue, interaction, player, newQueue);
     } else if (newQueue.length == 1) {
-        sendMessage(`Added ${newQueue[0]} to queue`, interaction);
+        const song = newQueue[0];
+        const id = song.type == "url" ? song.data : (song.type == "track" ? song.data.name : "");
+
+        sendMessage(`Added ${id} to queue`, interaction);
     } else {
         sendMessage(`Added ${newQueue.length} songs to queue`, interaction);
     }
 }
 
-function joinVoiceChannelAndPlaySong(url, queue, interaction, player, newQueue) {
+function joinVoiceChannelAndPlaySong(song, queue, interaction, player, newQueue) {
     try {
         const voiceChannel = interaction.member.voice.channel;
 
@@ -126,25 +139,34 @@ function joinVoiceChannelAndPlaySong(url, queue, interaction, player, newQueue) 
             }
         };
 
-        playSong(url, interaction, connection, player, playNextSong, newQueue);
+        playSong(song, interaction, connection, player, playNextSong, newQueue);
     } catch (err) {
         console.error(err);
     }
 }
 
-function playSong(url, interaction, connection, player, playNextSong, newQueue) {
-    sendMessage(`Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : ""), interaction);
+function playSong(song, interaction, connection, player, playNextSong, newQueue) {
+    if (song.type == "url") {
+        const url = song.data;
+        sendMessage(`Playing: ${url}` + (newQueue.length > 0 ? `, added ${newQueue.length} songs to queue` : ""), interaction);
 
-    const stream = ytdl(url, {
-        quality: "highestaudio",
-        filter: 'audioonly',
-        highWaterMark: 1 << 25
-    });
-
-    player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
-    player.removeAllListeners();
-    player.on(AudioPlayerStatus.Idle, playNextSong);
-    connection.subscribe(player);
+        const stream = ytdl(url, {
+            quality: "highestaudio",
+            filter: 'audioonly',
+            highWaterMark: 1 << 25
+        });
+    
+        player.play(createAudioResource(stream, { inputType: StreamType.Arbitrary }));
+        player.removeAllListeners();
+        player.on(AudioPlayerStatus.Idle, playNextSong);
+        connection.subscribe(player);
+    } else if (song.type == "track") {
+        const query = song.data.artist + " - " + song.data.name;
+        getVideoId(`${query} audio`, (videoId) => {
+            const song = {type: "url", data: getYoutubeUrl(videoId)};
+            playSong(song, interaction, connection, player, playNextSong, newQueue);
+        });
+    }
 }
 
 function sendMessage(message, interaction) {
