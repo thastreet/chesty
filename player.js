@@ -2,7 +2,7 @@ const { createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } =
 const ytdl = require("ytdl-core");
 const { guild_id } = require("./config.json");
 
-const { getSongMetadata, getPlaylistMetadata, getAlbumMetadata } = require("./spotify.js");
+const { getSongMetadata, getPlaylistMetadata, getAlbumMetadata, getRecommendations } = require("./spotify.js");
 const { getVideoId, getPlaylistIds } = require("./youtube.js");
 
 const moment = require("moment");
@@ -11,7 +11,8 @@ const CommandNames = {
     Play: "play",
     Skip: "skip",
     Clear: "clear",
-    Stop: "stop"
+    Stop: "stop",
+    Recommendations: "recommendations"
 };
 
 function listenForInteraction(client, queue, player) {
@@ -24,6 +25,8 @@ function listenForInteraction(client, queue, player) {
             clear(queue, interaction);
         } else if (interaction.commandName === CommandNames.Stop) {
             stop(queue, player, interaction);
+        } else if (interaction.commandName === CommandNames.Recommendations) {
+            recommendations(queue, interaction, interaction.options.getString("query"), interaction.options.getString("category"), player);
         }
 
         listenForInteraction(client, queue, player);
@@ -104,6 +107,12 @@ function stop(queue, player, interaction) {
     clear(queue, null);
     player.stop();
     sendMessage("Stopped", interaction);
+}
+
+function recommendations(queue, interaction, query, category, player) {
+    getRecommendations(query, category, (recommendations) => {
+        recommendations;
+    });
 }
 
 function getYoutubeUrl(videoId) {

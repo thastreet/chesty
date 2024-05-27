@@ -31,7 +31,23 @@ const commands = [
 		.setDescription("Clear the queue"),
 	new SlashCommandBuilder()
 		.setName(CommandNames.Stop)
-		.setDescription("Stop the bot")
+		.setDescription("Stop the bot"),
+	new SlashCommandBuilder()
+		.setName(CommandNames.Recommendations)
+		.setDescription("Add recommendations to the queue")
+		.addStringOption(option =>
+			option.setName('category')
+				.setDescription('The recommendation category')
+				.setRequired(true)
+				.addChoices(
+					{ name: 'Genre', value: 'genre' },
+					{ name: 'Artist', value: 'artist' },
+				))
+		.addStringOption(option =>
+			option.setName("query")
+				.setDescription("Could be drum and bass for genre or Netsky for artist")
+				.setRequired(true)
+		)
 ].map(command => command.toJSON());
 
 const rest = new REST().setToken(token);
