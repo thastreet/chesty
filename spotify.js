@@ -37,6 +37,22 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function shuffle(array) {
+  let currentIndex = array.length;
+
+  // While there remain elements to shuffle...
+  while (currentIndex != 0) {
+
+    // Pick a remaining element...
+    let randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+
+    // And swap it with the current element.
+    [array[currentIndex], array[randomIndex]] = [
+      array[randomIndex], array[currentIndex]];
+  }
+}
+
 module.exports = {
     getSongMetadata: function (songUrl, onMetadataReceived) {
         getAccessToken((accessToken) => {
@@ -90,18 +106,24 @@ module.exports = {
                 });
         });
     },
-    getRecommendations: function (query, category, recommendations) {
+    getRecommendations: function (query, category, onMetadataReceived) {
         getAccessToken((accessToken) => {
-            const offset = getRandomInt(0, 500);
+            const totalLimit = 5
+            const offset = category == "genre" ? getRandomInt(0, 100) : 0;
+            const limit = category == "artist" ? 30 : totalLimit;
             axios
-                .get(`https://api.spotify.com/v1/search?q=${category}%3A%22${query}%22&type=track&market=CA&limit=5&offset=${offset}`, { headers: { "Authorization": `Bearer ${accessToken}` } })
+                .get(`https://api.spotify.com/v1/search?q=${category}:"${query}"&type=track&market=CA&limit=${limit}&offset=${offset}`, { headers: { "Authorization": `Bearer ${accessToken}` } })
                 .then(res => {
                     const items = res.data.tracks.items;
-                    recommendations(
-                        items.map((item) => {
-                            return item.artists[0].name + " - " + item.name;
-                        })
-                    );
+                    const metadata = items.map((item) => {
+                        return { name: item.name, artist: item.artists[0].name };
+                    });
+
+                    if (category == "artist") {
+                        shuffle(metadata);
+                    }
+
+                    onMetadataReceived(category == "artist" ? metadata.slice(0, totalLimit) : metadata);
                 })
                 .catch(error => {
                     console.error(error);

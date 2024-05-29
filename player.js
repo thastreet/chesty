@@ -110,8 +110,17 @@ function stop(queue, player, interaction) {
 }
 
 function recommendations(queue, interaction, query, category, player) {
-    getRecommendations(query, category, (recommendations) => {
-        recommendations;
+    getRecommendations(query, category, (tracks) => {
+        const songs = tracks.map((track) => {
+            return { type: "track", data: track };
+        });
+
+        var messagePrefix = `Found ${songs.length} ${query} recommendations:\n`;
+        for (song of songs) {
+            messagePrefix += `${song.data.artist} - ${song.data.name}\n`;
+        }
+
+        playSongs(songs, queue, interaction, player, messagePrefix)
     });
 }
 
@@ -124,8 +133,14 @@ function playYoutubeUrl(url, queue, interaction, player) {
     playSongs([song], queue, interaction, player);
 }
 
-function playSongs(songs, queue, interaction, player) {
+function playSongs(songs, queue, interaction, player, messagePrefix = "") {
     const firstSong = songs.slice(0, 1)[0];
+
+    if (firstSong == undefined) {
+        sendMessage(`${messagePrefix}\nNothing to play`, interaction);
+        return;
+    }
+
     const otherSongs = songs.slice(1, songs.length);
 
     const newQueue = [];
@@ -139,18 +154,18 @@ function playSongs(songs, queue, interaction, player) {
     queue.push(...newQueue);
 
     if (player.state.status == AudioPlayerStatus.Idle) {
-        joinVoiceChannelAndPlaySong(firstSong, interaction, player, newQueue.length);
+        joinVoiceChannelAndPlaySong(firstSong, interaction, player, newQueue.length, messagePrefix);
     } else if (newQueue.length == 1) {
         const song = newQueue[0];
         const id = song.type == "url" ? song.data : (song.type == "track" ? song.data.name : "");
 
-        sendMessage(`Added ${id} to queue`, interaction);
+        sendMessage(`${messagePrefix}\nAdded ${id} to queue`, interaction);
     } else {
-        sendMessage(`Added ${newQueue.length} songs to queue`, interaction);
+        sendMessage(`${messagePrefix}\nAdded ${newQueue.length} songs to queue`, interaction);
     }
 }
 
-function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount) {
+function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount, messagePrefix = "") {
     try {
         const voiceChannel = interaction.member.voice.channel;
 
@@ -160,16 +175,16 @@ function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount) {
             adapterCreator: voiceChannel.guild.voiceAdapterCreator
         });
 
-        playSong(song, interaction, connection, player, addedCount);
+        playSong(song, interaction, connection, player, addedCount, messagePrefix);
     } catch (err) {
         console.error(err);
     }
 }
 
-async function playSong(song, interaction, connection, player, addedCount) {
+async function playSong(song, interaction, connection, player, addedCount, messagePrefix = "") {
     if (song.type == "url") {
         const url = song.data;
-        const baseMessage = `Playing: ${url}` + (addedCount > 0 ? `, added ${addedCount} songs to queue` : "");
+        const baseMessage = `${messagePrefix}\nPlaying: ${url}` + (addedCount > 0 ? `, added ${addedCount} songs to queue` : "");
         const interactionResponse = await sendMessage(baseMessage, interaction);
 
         var lengthSeconds = "0";
@@ -221,7 +236,7 @@ async function playSong(song, interaction, connection, player, addedCount) {
         const query = song.data.artist + " - " + song.data.name;
         queryVideoId(query, (videoId) => {
             const song = { type: "url", data: getYoutubeUrl(videoId) };
-            playSong(song, interaction, connection, player, addedCount);
+            playSong(song, interaction, connection, player, addedCount, messagePrefix);
         });
     }
 }
