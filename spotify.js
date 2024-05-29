@@ -112,7 +112,7 @@ module.exports = {
             const offset = category == "genre" ? getRandomInt(0, 100) : 0;
             const limit = category == "artist" ? 30 : totalLimit;
             axios
-                .get(`https://api.spotify.com/v1/search?q=${category}:"${query}"&type=track&market=CA&limit=${limit}&offset=${offset}`, { headers: { "Authorization": `Bearer ${accessToken}` } })
+                .get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`${category}:"${query.replaceAll(" ", "+")}"`)}&type=track&market=CA&limit=${limit}&offset=${offset}`, { headers: { "Authorization": `Bearer ${accessToken}` } })
                 .then(res => {
                     const items = res.data.tracks.items;
                     const metadata = items.map((item) => {
