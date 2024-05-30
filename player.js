@@ -20,7 +20,7 @@ function listenForInteraction(client, queue, player) {
         if (interaction.commandName === CommandNames.Play) {
             resolveQuery(queue, interaction, interaction.options.getString("query"), player);
         } else if (interaction.commandName === CommandNames.Skip) {
-            skip(queue, player, interaction);
+            skip(player, interaction);
         } else if (interaction.commandName === CommandNames.Clear) {
             clear(queue, interaction);
         } else if (interaction.commandName === CommandNames.Stop) {
@@ -81,16 +81,9 @@ function resolveQuery(queue, interaction, query, player) {
     }
 }
 
-function skip(queue, player, interaction) {
-    const connection = player.subscribers[0].connection;
-
+function skip(player, interaction) {
+    sendMessage("Skipping!", interaction);
     player.stop();
-    
-    if (queue.length > 0) {
-        playSong(queue.shift(), interaction, connection, player, 0);
-    } else {
-        sendMessage("No more songs to play", interaction);
-    }
 }
 
 function clear(queue, interaction) {
@@ -154,7 +147,7 @@ function playSongs(songs, queue, interaction, player, messagePrefix = "") {
     queue.push(...newQueue);
 
     if (player.state.status == AudioPlayerStatus.Idle) {
-        joinVoiceChannelAndPlaySong(firstSong, interaction, player, newQueue.length, messagePrefix);
+        joinVoiceChannelAndPlaySong(firstSong, queue, interaction, player, newQueue.length, messagePrefix);
     } else if (newQueue.length == 1) {
         const song = newQueue[0];
         const id = song.type == "url" ? song.data : (song.type == "track" ? song.data.name : "");
@@ -165,7 +158,7 @@ function playSongs(songs, queue, interaction, player, messagePrefix = "") {
     }
 }
 
-function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount, messagePrefix = "") {
+function joinVoiceChannelAndPlaySong(song, queue, interaction, player, addedCount, messagePrefix = "") {
     try {
         const voiceChannel = interaction.member.voice.channel;
 
@@ -175,17 +168,34 @@ function joinVoiceChannelAndPlaySong(song, interaction, player, addedCount, mess
             adapterCreator: voiceChannel.guild.voiceAdapterCreator
         });
 
-        playSong(song, interaction, connection, player, addedCount, messagePrefix);
+        const playNextSong = () => {
+            if (queue.length > 0) {
+                playSong(queue.shift(), interaction, connection, player, playNextSong, 0, false);
+            } else {
+                console.log("No more songs to play");
+            }
+        };
+
+        playSong(song, interaction, connection, player, playNextSong, addedCount, true, messagePrefix);
     } catch (err) {
         console.error(err);
     }
 }
 
-async function playSong(song, interaction, connection, player, addedCount, messagePrefix = "") {
+async function playSong(song, interaction, connection, player, playNextSong, addedCount, initialInteraction, messagePrefix = "") {
     if (song.type == "url") {
         const url = song.data;
         const baseMessage = `${messagePrefix}\nPlaying: ${url}` + (addedCount > 0 ? `, added ${addedCount} songs to queue` : "");
-        const interactionResponse = await sendMessage(baseMessage, interaction);
+
+        var interactionToReply;
+
+        if (initialInteraction) {
+            const interactionResponse = await sendMessage(baseMessage, interaction);
+            interactionToReply = interactionResponse.interaction;
+        } else {
+            interaction.editReply({ content: baseMessage, components: [] });
+            interactionToReply = interaction;
+        }
 
         var lengthSeconds = "0";
 
@@ -206,6 +216,8 @@ async function playSong(song, interaction, connection, player, addedCount, messa
             if (timerId) {
                 clearInterval(timerId);
             }
+
+            playNextSong();
         });
 
         player.on(AudioPlayerStatus.Playing, () => {
@@ -227,7 +239,7 @@ async function playSong(song, interaction, connection, player, addedCount, messa
 
                 const progressMessage = moment.utc(playbackDurationMs).format('mm:ss') + "  " + progressBar + "  " + moment.utc(totalDurationMs).format('mm:ss');
 
-                interactionResponse.interaction.editReply({ content: baseMessage + "\n" + progressMessage, components: [] });
+                interactionToReply.editReply({ content: baseMessage + "\n" + progressMessage, components: [] });
             }
         });
 
@@ -236,7 +248,7 @@ async function playSong(song, interaction, connection, player, addedCount, messa
         const query = song.data.artist + " - " + song.data.name;
         queryVideoId(query, (videoId) => {
             const song = { type: "url", data: getYoutubeUrl(videoId) };
-            playSong(song, interaction, connection, player, addedCount, messagePrefix);
+            playSong(song, interaction, connection, player, playNextSong, addedCount, initialInteraction, messagePrefix);
         });
     }
 }
