@@ -5,16 +5,16 @@
     "main": "app.js",
     "author": "thastreet",
     "dependencies": {
-        "@discordjs/rest": "2.2.0",
-        "@discordjs/voice": "0.16.1",
-        "axios": "1.6.8",
-        "discord.js": "14.14.1",
+        "@discordjs/rest": "2.3.0",
+        "@discordjs/voice": "0.17.0",
+        "@distube/ytdl-core": "^4.13.5",
+        "axios": "1.7.2",
+        "discord.js": "14.15.3",
         "ffmpeg": "0.0.4",
         "ffmpeg-static": "5.2.0",
-        "libsodium-wrappers": "0.7.13",
-        "npm": "^10.5.1",
-        "opusscript": "0.1.1",
-        "ytdl-core": "4.11.5"
+        "libsodium-wrappers": "0.7.14",
+        "npm": "^10.8.2",
+        "opusscript": "0.1.1"
     },
     "scripts": {
         "start": "node bot.js"

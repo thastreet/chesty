@@ -1,5 +1,5 @@
 const { createAudioResource, joinVoiceChannel, StreamType, AudioPlayerStatus } = require("@discordjs/voice");
-const ytdl = require("ytdl-core");
+const ytdl = require("@distube/ytdl-core");
 const { guild_id } = require("./config.json");
 
 const { getMetadata } = require("./spotify.js");
